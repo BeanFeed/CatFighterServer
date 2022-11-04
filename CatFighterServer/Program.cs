@@ -92,13 +92,9 @@ class Program
                     else
                     {
                         //Adds client to client list and sends client their IPEndPoint
-                        clients.Add(data.sender);
-                        Message toSend = new Message();
                         data.sender.ipep = sender;
-                        toSend.messageType = Message.MessageType.ServerConnect;
-                        toSend.message = "";
-                        toSend.toChatId = data.sender.chatId;
-                        toSend.sender = data.sender;
+                        clients.Add(data.sender);
+                        Message toSend = new Message(data.sender, Message.MessageType.ServerConnect, "", data.sender.chatId);
                         udp.SendAsync(Encoding.ASCII.GetBytes(JsonConvert.SerializeObject(toSend)));
                     }
                 }
@@ -143,15 +139,17 @@ class Program
         if (sPort != "" && OnlyInt(sPort)) port = int.Parse(sPort);
         IPEndPoint ipEndPoint = new IPEndPoint(IPAddress.Parse(ip), port);
         UdpClient udp = new UdpClient(ipEndPoint);
-        Client self = new Client();
-        self.id = new Random().Next(100000,999999);
-        self.chatId = GenRandString();
+        Client self = new Client(null, new Random().Next(100000, 999999), GenRandString());
+      
         //Send message to server to get self IPEndpoint
-        Message msg = new Message();
-        msg.sender = self;
-        msg.toChatId = self.chatId;
-        msg.messageType = Message.MessageType.ServerConnect;
-        msg.message = "";
+        Message msg = new Message(self, Message.MessageType.ServerConnect, "", self.chatId);
+        udp.Send(Encoding.ASCII.GetBytes(JsonConvert.SerializeObject(msg)));
+        Message data = JsonConvert.DeserializeObject<Message>(Encoding.ASCII.GetString(udp.Receive(ref ipEndPoint)));
+        while(self.id != data.sender.id)
+        {
+            data = JsonConvert.DeserializeObject<Message>(Encoding.ASCII.GetString(udp.Receive(ref ipEndPoint)));
+        }
+        self.ipep = data.sender.ipep;
         //Ascii gui to select whether to send or recieve messages
         int selected = 0;
         bool optSel = false;
@@ -192,6 +190,14 @@ class Program
         if(selected == 0)
         {
             //Send Messages
+            Console.Clear();
+            bool cont = true;
+            while(cont)
+            {
+                Console.Clear();
+                Console.WriteLine("Chat ID: " + self.chatId);
+                Console.WriteLine("ID: " + self.id.ToString());
+            }
         }
         else
         {
@@ -214,9 +220,15 @@ class Program
 
 class Client
 {
-    public IPEndPoint ipep { get; set; }
-    public int id { get; set; }
-    public string chatId { get; set; }
+    public IPEndPoint? ipep;
+    public int id;
+    public string chatId;
+    public Client(IPEndPoint? ipEP, int userId, string chatID)
+    {
+        if(ipEP != null) ipep = ipEP;
+        id = userId;
+        chatId = chatID;
+    }
 }
 class Message
 {
@@ -229,8 +241,15 @@ class Message
         ServerConnect,
         ServerDisconnect
     }
-    public Client sender { get; set; }
-    public MessageType messageType { get; set; }
-    public string message { get; set; }
-    public string toChatId { get; set; }
+    public Client sender;
+    public MessageType messageType;
+    public string message;
+    public string toChatId;
+    public Message(Client cl, MessageType mt, string msg, string tochatId)
+    {
+        sender = cl;
+        messageType = mt;
+        message = msg;
+        toChatId = tochatId;
+    }
 }

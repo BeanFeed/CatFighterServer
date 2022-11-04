@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "CatFighterServer": {
+      "commandName": "Project",
+      "commandLineArgs": "-d"
+    }
+  }
+}
